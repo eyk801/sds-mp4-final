@@ -1,0 +1,108 @@
+---
+title: "Mini Project final"
+output: html_document
+---
+
+```{r message = FALSE}
+library(mdsr)
+library(RMySQL)
+library(ggplot2)
+db <- dbConnect_scidb(dbname = "imdb")
+```
+
+```{r message=FALSE}
+class(db)
+```
+
+```{r message=FALSE}
+total_entertainment <- db %>% 
+  dbGetQuery("SELECT production_year, COUNT(*) as total_entertainment
+FROM imdb.title
+WHERE kind_id = 1
+GROUP BY production_year
+ORDER BY production_year DESC;")
+```
+
+```{r message=FALSE}
+spanish_movies <- db %>%
+  dbGetQuery("SELECT production_year, COUNT(*) as spanish_count
+FROM imdb.movie_info
+JOIN title on movie_info.movie_id = title.id
+WHERE info_type_id = 4
+AND info LIKE '%Spanish%'
+AND kind_id = 1
+GROUP BY production_year;")
+```
+
+```{r message=FALSE}
+tagalog_movies <- db %>%
+  dbGetQuery("SELECT production_year, COUNT(*) as tagalog_count
+FROM imdb.movie_info
+JOIN title on movie_info.movie_id = title.id
+WHERE info_type_id = 4
+AND info LIKE '%Tagalog%'
+AND kind_id = 1
+GROUP BY production_year;")
+```
+
+```{r message=FALSE}
+korean_movies <- db %>%
+  dbGetQuery("SELECT production_year, COUNT(*) as korean_count
+FROM imdb.movie_info
+JOIN title on movie_info.movie_id = title.id
+WHERE info_type_id = 4
+AND info LIKE '%Korean%'
+AND kind_id = 1
+GROUP BY production_year;")
+```
+
+```{r message = FALSE}
+english_movies <- db %>%
+  dbGetQuery("SELECT production_year, COUNT(*) as english_count
+FROM imdb.movie_info
+JOIN title on movie_info.movie_id = title.id
+WHERE info_type_id = 4
+AND info LIKE '%English%'
+AND kind_id = 1
+GROUP BY production_year;")
+```
+
+```{r}
+s_t_movies <- spanish_movies %>%
+  left_join(tagalog_movies, by="production_year")
+
+movies2 <- s_t_movies %>%
+  left_join(korean_movies, by="production_year")
+
+movies3<- movies2 %>%
+  left_join(english_movies, by="production_year")
+
+all_movies <- movies3 %>%
+  left_join(total_entertainment, by="production_year")
+
+zero_values <- function(value){
+  value[is.na(value)] <- 0
+  return(value)
+}
+
+all_movies <- zero_values(all_movies)
+
+```
+
+```{r}
+
+years <- filter(all_movies, production_year == "2017" | production_year == "2007" | production_year == "1997")
+
+ggplot(years, aes(x = production_year, y = english_count/total_entertainment*100)) +
+  geom_bar(stat = "identity")
+
+ggplot(years, aes(x = production_year, y = spanish_count/total_entertainment*100)) +
+  geom_bar(stat = "identity")
+
+ggplot(years, aes(x = production_year, y = tagalog_count/total_entertainment*100)) +
+  geom_bar(stat = "identity")
+
+ggplot(years, aes(x = production_year, y = korean_count/total_entertainment*100)) +
+  geom_bar(stat = "identity")
+
+```
