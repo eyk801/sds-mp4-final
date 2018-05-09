@@ -14,6 +14,7 @@ db <- dbConnect_scidb(dbname = "imdb")
 class(db)
 ```
 
+###total number of movies in imdb
 ```{r message=FALSE}
 total_entertainment <- db %>% 
   dbGetQuery("SELECT production_year, COUNT(*) as total_entertainment
@@ -23,86 +24,79 @@ GROUP BY production_year
 ORDER BY production_year DESC;")
 ```
 
+###number of movies for each specified language in imdb
 ```{r message=FALSE}
-spanish_movies <- db %>%
-  dbGetQuery("SELECT production_year, COUNT(*) as spanish_count
+all_language_movies <- db%>%
+  dbGetQuery("SELECT production_year, SUM(info LIKE '%English%') AS English, SUM(info LIKE '%Tagalog%') AS Tagalog, SUM(info LIKE '%Spanish%') AS Spanish, SUM(info LIKE '%Korean%') as Korean 
 FROM imdb.movie_info
 JOIN title on movie_info.movie_id = title.id
 WHERE info_type_id = 4
-AND info LIKE '%Spanish%'
 AND kind_id = 1
 GROUP BY production_year;")
+```
+
+###number of tv series for each specified language in imdb
+```{r message=FALSE}
+all_language_tv <- db%>%
+  dbGetQuery("SELECT production_year, SUM(info LIKE '%English%') AS English, SUM(info LIKE '%Tagalog%') AS Tagalog, SUM(info LIKE '%Spanish%') AS Spanish, SUM(info LIKE '%Korean%') as Korean 
+FROM imdb.movie_info
+JOIN title on movie_info.movie_id = title.id
+WHERE info_type_id = 4
+AND kind_id = 2
+GROUP BY production_year;")
+```
+
+###combining production years for each language for movies
+```{r message=FALSE}
+all_movies_long <- all_language_movies %>%
+  gather(key = "languages", value = "total", English:Korean) %>%
+  arrange(production_year)
+```
+
+###plot for movies
+```{r message=FALSE}
+ggplot(all_movies_long, aes(x= production_year, y = total)) +
+  geom_line(aes(color = factor(languages)), alpha = 1) +
+  xlim(1917,2017)
+```
+
+###combining production years for each language for tv series
+```{r message=FALSE}
+all_tv_long <- all_language_tv %>%
+  gather(key = "languages", value = "total", English:Korean) %>%
+  arrange(production_year)
+```
+
+###plot for tv series
+```{r message=FALSE}
+ggplot(all_tv_long, aes(x= production_year, y = total)) +
+  geom_line(aes(color = factor(languages)), alpha = 1) +
+  xlim(1917,2017)
 ```
 
 ```{r message=FALSE}
-tagalog_movies <- db %>%
-  dbGetQuery("SELECT production_year, COUNT(*) as tagalog_count
-FROM imdb.movie_info
-JOIN title on movie_info.movie_id = title.id
-WHERE info_type_id = 4
-AND info LIKE '%Tagalog%'
-AND kind_id = 1
-GROUP BY production_year;")
-```
-
-```{r message=FALSE}
-korean_movies <- db %>%
-  dbGetQuery("SELECT production_year, COUNT(*) as korean_count
-FROM imdb.movie_info
-JOIN title on movie_info.movie_id = title.id
-WHERE info_type_id = 4
-AND info LIKE '%Korean%'
-AND kind_id = 1
-GROUP BY production_year;")
-```
-
-```{r message = FALSE}
-english_movies <- db %>%
-  dbGetQuery("SELECT production_year, COUNT(*) as english_count
-FROM imdb.movie_info
-JOIN title on movie_info.movie_id = title.id
-WHERE info_type_id = 4
-AND info LIKE '%English%'
-AND kind_id = 1
-GROUP BY production_year;")
-```
-
-```{r}
-s_t_movies <- spanish_movies %>%
-  left_join(tagalog_movies, by="production_year")
-
-movies2 <- s_t_movies %>%
-  left_join(korean_movies, by="production_year")
-
-movies3<- movies2 %>%
-  left_join(english_movies, by="production_year")
-
-all_movies <- movies3 %>%
+movies <- all_language_movies %>%
   left_join(total_entertainment, by="production_year")
 
-zero_values <- function(value){
-  value[is.na(value)] <- 0
-  return(value)
-}
-
-all_movies <- zero_values(all_movies)
-
 ```
 
-```{r}
+```{r message=FALSE}
+years <- filter(movies, production_year == "2017" | production_year == "2007" | production_year == "1997")
 
-years <- filter(all_movies, production_year == "2017" | production_year == "2007" | production_year == "1997")
+ggplot(years, aes(x = production_year, y = English/total_entertainment*100)) +
+  geom_bar(stat = "identity") +
+  ggtitle("English speaking movies in IMDB") 
 
-ggplot(years, aes(x = production_year, y = english_count/total_entertainment*100)) +
-  geom_bar(stat = "identity")
+ggplot(years, aes(x = production_year, y = Spanish/total_entertainment*100)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Spanish speaking movies in IMDB")
 
-ggplot(years, aes(x = production_year, y = spanish_count/total_entertainment*100)) +
-  geom_bar(stat = "identity")
+ggplot(years, aes(x = production_year, y = Tagalog/total_entertainment*100)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Tagalog speaking movies in IMDB")
 
-ggplot(years, aes(x = production_year, y = tagalog_count/total_entertainment*100)) +
-  geom_bar(stat = "identity")
-
-ggplot(years, aes(x = production_year, y = korean_count/total_entertainment*100)) +
-  geom_bar(stat = "identity")
+ggplot(years, aes(x = production_year, y = Korean/total_entertainment*100)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Korean speaking movies in IMDB")
 
 ```
